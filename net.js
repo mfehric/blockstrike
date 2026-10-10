@@ -19,6 +19,21 @@ export const makeCode = () => Array.from({ length: 4 }, () => CODE_CHARS[(Math.r
 export const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4)
 export const liveAvailable = () => !!window.mobius?.live?.join
 
+// The sandboxed frame cannot read the page address, but the browser passes the
+// same-origin page URL as the frame's referrer. On the public page
+// /blockstrike?room=ABCD that carries an invite; in the shell it gives the
+// instance origin the invite link points at.
+export const PUBLIC_PATH = '/blockstrike'
+const pageUrl = () => { try { return document.referrer ? new URL(document.referrer) : null } catch (e) { return null } }
+export const inviteCode = () => {
+  const c = cleanCode(pageUrl()?.searchParams.get('room'))
+  return c.length === 4 ? c : ''
+}
+export const inviteLink = (code) => {
+  const u = pageUrl()
+  return u ? `${u.origin}${PUBLIC_PATH}?room=${code}` : ''
+}
+
 // A remote player's recent states for interpolation.
 export class RemoteTrack {
   constructor() { this.buf = []; this.last = null }

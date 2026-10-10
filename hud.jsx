@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { WEAPONS } from './weapons.js'
 import { MATCH_SECONDS } from './match.js'
+import { inviteLink } from './net.js'
 import * as THREE from 'three'
 
 const fmtTime = (t) => { const s = Math.max(0, Math.ceil(t)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') }
@@ -213,28 +214,28 @@ const STATUS_TEXT = {
 }
 
 // Create or join a room by its 4-letter code.
-export function OnlineMenu({ name, onName, onCreate, onJoin, onBack, available }) {
-  const [code, setCode] = React.useState('')
+export function OnlineMenu({ name, onName, onCreate, onJoin, onBack, available, initialCode = '', ready = true }) {
+  const [code, setCode] = React.useState(initialCode)
   const clean = code.toUpperCase().slice(0, 4)
   return (
     <div className="bs-menu">
       <div className="bs-card">
         <h1 className="bs-title">PLAY <span>ONLINE</span></h1>
-        <p className="bs-sub">Up to 4 players, no account needed for guests on the public link.</p>
+        <p className="bs-sub">{initialCode ? `You're invited to room ${initialCode}. Pick a name and join.` : 'Up to 4 players, no account needed for guests on the public link.'}</p>
         {!available && <p className="bs-note">Online rooms are not available in this Möbius version.</p>}
         <label className="bs-row" style={{ gridTemplateColumns: '70px 1fr' }}>
           <span>Name</span>
           <input className="bs-text" value={name} maxLength={16} placeholder="Player" onChange={(e) => onName(e.target.value)} />
         </label>
-        <button className="bs-play" style={{ marginTop: 16 }} disabled={!available} onClick={onCreate}>CREATE ROOM</button>
+        <button className="bs-play" style={{ marginTop: 16 }} disabled={!available || !ready} onClick={onCreate}>CREATE ROOM</button>
         <label className="bs-row" style={{ gridTemplateColumns: '70px 1fr 90px' }}>
           <span>Room code</span>
           <input className="bs-text bs-code" value={code} maxLength={8} placeholder="ABCD" inputMode="text"
             autoCapitalize="characters" autoCorrect="off" autoComplete="off" spellCheck={false}
             aria-label="Room code"
             onChange={(e) => setCode(e.target.value.replace(/[^A-Za-z0-9]/g, ''))}
-            onKeyDown={(e) => { if (e.key === 'Enter' && clean.length >= 4) onJoin(clean) }} />
-          <button className="bs-seg-btn" disabled={!available || clean.length < 4} onClick={() => onJoin(clean)}>JOIN</button>
+            onKeyDown={(e) => { if (e.key === 'Enter' && ready && clean.length >= 4) onJoin(clean) }} />
+          <button className="bs-seg-btn" disabled={!available || !ready || clean.length < 4} onClick={() => onJoin(clean)}>JOIN</button>
         </label>
         <button className="bs-ghost" onClick={onBack}>Back</button>
       </div>
@@ -243,16 +244,26 @@ export function OnlineMenu({ name, onName, onCreate, onJoin, onBack, available }
 }
 
 export function Lobby({ code, status, error, members, isHost, youId, onStart, onLeave }) {
-  const [copied, setCopied] = React.useState(false)
+  const [copied, setCopied] = React.useState('')
   const [slow, setSlow] = React.useState(false)
   React.useEffect(() => {
     if (status === 'open') { setSlow(false); return undefined }
     const t = setTimeout(() => setSlow(true), 8000)
     return () => clearTimeout(t)
   }, [status])
-  const copy = () => {
-    const text = code
-    try { navigator.clipboard?.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1200) } catch (e) {}
+  // The app frame is sandboxed, so navigator.clipboard is usually denied there;
+  // the runtime's clipboard tries in-frame copy, then the trusted host.
+  const link = inviteLink(code)
+  const copy = async () => {
+    const text = link || code
+    let ok = false
+    try {
+      ok = window.mobius?.clipboard?.writeText
+        ? await window.mobius.clipboard.writeText(text)
+        : (await navigator.clipboard.writeText(text), true)
+    } catch (e) { ok = false }
+    setCopied(ok ? 'ok' : 'fail')
+    setTimeout(() => setCopied(''), ok ? 1500 : 6000)
   }
   const ready = status === 'open'
   const msg = error === 'full' ? 'This room is full (4 players).' : error === 'unauthorized' ? 'Could not sign in to the room.' : slow && status !== 'open' ? 'Still cannot reach the room server. Check your connection, or leave and try again.' : STATUS_TEXT[status] || ''
@@ -260,8 +271,9 @@ export function Lobby({ code, status, error, members, isHost, youId, onStart, on
     <div className="bs-menu">
       <div className="bs-card">
         <h1 className="bs-title">ROOM <span>{code}</span></h1>
-        <p className="bs-sub">{ready ? 'Share this code. The host starts the match.' : msg}</p>
-        <button className="bs-ghost" style={{ marginTop: 0 }} onClick={copy}>{copied ? 'Copied' : 'Copy room code'}</button>
+        <p className="bs-sub">{ready ? (link ? 'Send friends the invite link. The host starts the match.' : 'Share this code. The host starts the match.') : msg}</p>
+        <button className="bs-ghost" style={{ marginTop: 0 }} onClick={copy}>{copied === 'ok' ? 'Copied' : link ? 'Copy invite link' : 'Copy room code'}</button>
+        {copied === 'fail' && <p className="bs-note" style={{ userSelect: 'all', wordBreak: 'break-all' }}>Copy was blocked. Select and copy: {link || code}</p>}
         <ul className="bs-players">
           {members.map((m, i) => (
             <li key={m.id}><span className="bs-dot" style={{ background: ['#e0644a', '#4b8bd9', '#5fb36b', '#d9a441'][i % 4] }} />{m.name}{m.id === youId ? ' (you)' : ''}{i === 0 ? ' · host' : ''}</li>

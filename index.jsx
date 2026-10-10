@@ -4,7 +4,7 @@ import { CONFIG } from './config.js'
 import { initAudio, setVolume } from './audio.js'
 import { loadSettings, saveSettings, DEFAULTS } from './settings.js'
 import { Hud, MainMenu, PauseMenu, Results, OnlineMenu, Lobby } from './hud.jsx'
-import { makeCode, cleanCode, liveAvailable } from './net.js'
+import { makeCode, cleanCode, liveAvailable, inviteCode } from './net.js'
 import { CSS, CSS2 } from './styles.js'
 
 export default function App({ appId }) {
@@ -12,7 +12,10 @@ export default function App({ appId }) {
   const gameRef = useRef(null)
   const [game, setGame] = useState(null)
   const [settings, setSettings] = useState(DEFAULTS)
-  const [phase, setPhase] = useState('menu')        // menu | playing | results
+  // An invite link opens straight on the online screen with its code filled in;
+  // the guest still taps JOIN, which also unlocks audio for the match.
+  const [invite] = useState(() => inviteCode())
+  const [phase, setPhase] = useState(invite ? 'online' : 'menu')        // menu | online | lobby | playing | results
   const [locked, setLocked] = useState(false)
   const [error, setError] = useState('')
   const [feed, setFeed] = useState([])
@@ -145,7 +148,7 @@ export default function App({ appId }) {
       {game && phase === 'playing' && <Hud game={game} feed={feed} />}
       {phase === 'menu' && <MainMenu settings={settings} onChange={change} onPlay={play} onOnline={() => setPhase('online')} error={error} />}
       {phase === 'online' && (
-        <OnlineMenu name={settings.name || ''} onName={(v) => change({ name: v })} available={liveAvailable()}
+        <OnlineMenu name={settings.name || ''} onName={(v) => change({ name: v })} available={liveAvailable()} initialCode={invite} ready={!!game}
           onCreate={() => enterRoom(makeCode())} onJoin={(c) => enterRoom(cleanCode(c))} onBack={() => setPhase('menu')} />
       )}
       {phase === 'lobby' && online && (
