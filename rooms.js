@@ -1,10 +1,13 @@
 // Peer-to-peer rooms that work in any Möbius and on the plain web.
 //
 // Players connect straight to each other over WebRTC data channels. To find
-// each other they exchange a few small messages on a public ntfy.sh topic
-// named after the room code: inside Möbius through its GET-only /api/proxy
-// (an app frame may only talk to its own server), on the web directly. Only
-// the handshake uses ntfy; game traffic never touches a server.
+// each other they leave a few small messages in a mailbox named after the
+// room code. Inside Möbius the mailbox is Blockstrike's own service: every
+// installation forwards to one hub installation (like Möbius Town), so players
+// on different Möbius installations and guests on the hub's public page all
+// meet in the same rooms. The standalone web build (no Möbius around it) uses
+// a public ntfy.sh topic instead. Only the handshake uses a server; game
+// traffic goes straight between players.
 //
 // The room contract matches what Net expects (the old window.mobius.live):
 //   const room = join('bs-ABCD', { name, max })
@@ -12,37 +15,69 @@
 //   room.onPresence(list)  [{id, name}], host first
 //   room.onMessage({from, data}); room.send(data, [ids]?); room.close()
 //
-// Whoever finds no live host on the topic becomes the host: it announces
+// Whoever finds no live host in the mailbox becomes the host: it announces
 // itself, answers each guest's offer, keeps the member list and forwards
 // messages between guests. When the host leaves, the room ends.
 
 const NTFY = 'https://ntfy.sh/'
 const TOPIC_PREFIX = 'blockstrike-v2-'
+const SERVICE_ID = 'blockstrike'
 const ICE = [
   { urls: ['stun:stun.l.google.com:19302', 'stun:global.stun.twilio.com:3478'] },
   // PeerJS's public relay, for networks where a direct path is impossible.
   { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
 ]
-const HOST_POLL_MS = 4000          // ntfy.sh allows ~1 request / 5 s sustained per IP
+const HOST_POLL_MS = 4000          // keeps each installation well under the hub's public rate limit
 const GUEST_POLL_MS = 2500
 const JOIN_TIMEOUT_MS = 25000
 const ANNOUNCE_FRESH_S = 30 * 60   // a host announcement older than this is ignored
 
-let proxyToken = null
-export const setProxyToken = (t) => { proxyToken = t || null }
 const standalone = (() => { try { return window.self === window.top } catch (e) { return false } })()
 
+// ---- mailbox inside Möbius: this app's own service ---------------------------
+let access = { appId: null, token: null }
+let publicLane = false             // the hub's public page has no owner session
+export const setServiceAccess = (appId, token) => { access = { appId, token: token || null } }
+
+async function service(path, body) {
+  const call = (url, headers = {}) => fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(body),
+  })
+  let res = null
+  if (!publicLane && access.appId != null && access.token) {
+    res = await call(`/api/apps/${access.appId}/service/${path}`, { Authorization: 'Bearer ' + access.token })
+    if ([401, 403, 404].includes(res.status)) { publicLane = true; res = null }
+  } else publicLane = true
+  if (!res) res = await call(`/api/app-services/${SERVICE_ID}/${path}`)
+  let data = null
+  try { data = await res.json() } catch (e) {}
+  if (!res.ok) throw new Error(data?.error || data?.detail || 'signal ' + res.status)
+  return data
+}
+
+// ---- mailbox on the plain web: ntfy.sh ----------------------------------------
 async function ntfyGet(path) {
-  const url = NTFY + path
-  const res = standalone
-    ? await fetch(url)
-    : await fetch('/api/proxy?url=' + encodeURIComponent(url), { headers: proxyToken ? { Authorization: 'Bearer ' + proxyToken } : {} })
+  const res = await fetch(NTFY + path)
   if (!res.ok) throw new Error('signal ' + res.status)
   return res.text()
 }
-const publish = (topic, obj) => ntfyGet(`${topic}/publish?message=${encodeURIComponent(JSON.stringify(obj))}`)
-async function poll(topic, since) {
-  const text = await ntfyGet(`${topic}/json?poll=1&since=${since}`)
+
+// publish(topic, obj); poll(topic, cursor|null) -> events [{id, body}] with
+// events.cursor to pass to the next poll.
+async function publish(topic, obj) {
+  if (!standalone) return service('send', { room: topic, message: obj })
+  return ntfyGet(`${topic}/publish?message=${encodeURIComponent(JSON.stringify(obj))}`)
+}
+async function poll(topic, cursor) {
+  if (!standalone) {
+    const data = await service('poll', { room: topic, since: cursor ?? null })
+    const out = (data?.messages || []).filter((m) => m && m.body && typeof m.body === 'object')
+    out.cursor = data?.cursor ?? cursor ?? null
+    return out
+  }
+  const text = await ntfyGet(`${topic}/json?poll=1&since=${cursor ?? `${ANNOUNCE_FRESH_S}s`}`)
   const out = []
   for (const line of text.split('\n')) {
     if (!line.trim()) continue
@@ -50,13 +85,14 @@ async function poll(topic, since) {
       const ev = JSON.parse(line)
       if (ev.event !== 'message') continue
       const body = JSON.parse(ev.message)
-      if (body && typeof body === 'object') out.push({ id: ev.id, time: ev.time, body })
+      if (body && typeof body === 'object') out.push({ id: ev.id, body })
     } catch (e) {}
   }
+  out.cursor = out.at(-1)?.id ?? cursor ?? null
   return out
 }
 
-// SDP with every candidate gathered, compressed so it fits one ntfy message.
+// SDP with every candidate gathered, compressed so it fits one small message.
 const b64 = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 const unb64 = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))
 async function pack(desc) {
@@ -174,8 +210,9 @@ export function join(name, opts = {}) {
     if (closed) return
     let next = since
     try {
-      for (const ev of await poll(topic, since)) {
-        next = ev.id
+      const events = await poll(topic, since)
+      next = events.cursor
+      for (const ev of events) {
         if (seen.has(ev.id)) continue
         seen.add(ev.id)
         if (ev.body.k === 'offer' && ev.body.host === myPeer) answerOffer(ev.body)
@@ -218,8 +255,9 @@ export function join(name, opts = {}) {
       if (Date.now() > deadline) { fail('unreachable'); return }
       let next = cursor
       try {
-        for (const ev of await poll(topic, cursor)) {
-          next = ev.id
+        const events = await poll(topic, cursor)
+        next = events.cursor
+        for (const ev of events) {
           const b = ev.body
           if (b.to !== myPeer) continue
           if (b.k === 'full') { fail('full'); return }
@@ -235,9 +273,9 @@ export function join(name, opts = {}) {
   // ---- find a live host, or become one -------------------------------
   ;(async () => {
     let events
-    try { events = await poll(topic, `${ANNOUNCE_FRESH_S}s`) } catch (e) { fail('unavailable'); return }
+    try { events = await poll(topic, null) } catch (e) { fail('unavailable'); return }
     if (closed) return
-    const last = events.at(-1)?.id || `${ANNOUNCE_FRESH_S}s`
+    const last = events.cursor
     const hosts = events.filter((e) => e.body.k === 'host')
     const ended = new Set(events.filter((e) => e.body.k === 'bye').map((e) => e.body.peer))
     const live = hosts.filter((e) => !ended.has(e.body.peer)).at(-1)

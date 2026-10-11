@@ -28,6 +28,7 @@ export const liveAvailable = () => roomsAvailable()
 // invite is read from and pointed at its own address.
 export const PUBLIC_PATH = '/blockstrike'
 export const WEB_URL = 'https://mfehric.github.io/blockstrike/'
+export const HUB_HOST = 'mobius-production-bbe5.up.railway.app'   // keep in sync with service.py
 const standalone = (() => { try { return window.self === window.top } catch (e) { return false } })()
 const pageUrl = () => {
   try { return standalone ? new URL(location.href) : document.referrer ? new URL(document.referrer) : null } catch (e) { return null }
@@ -38,9 +39,10 @@ export const inviteCode = () => {
 }
 export const inviteLink = (code) => {
   const u = pageUrl()
-  // Inside Möbius the link opens the web version, so friends need nothing
-  // installed; Möbius players can also just type the code.
-  if (!standalone) return `${WEB_URL}?room=${code}`
+  // Inside Möbius the link opens the room hub's public page, which shares the
+  // rooms of every installation, so friends need nothing installed; Möbius
+  // players can also just type the code.
+  if (!standalone) return `https://${HUB_HOST}${PUBLIC_PATH}?room=${code}`
   return u ? `${u.origin}${u.pathname}?room=${code}` : ''
 }
 
