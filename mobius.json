@@ -2,7 +2,7 @@
   "id": "blockstrike",
   "package_id": "fac79945-2425-442d-8783-9fe7a0d94dd2",
   "name": "Blockstrike",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Fast low-poly arena FPS: Quake-style movement (air strafing, bunny hops, slide-hops), three weapons and a 4-minute free-for-all against bots.",
   "entry": "index.jsx",
   "icon": "icon.png",

@@ -104,6 +104,8 @@ export class OnlineMatch extends Match {
 
   onSync(from, d) {
     if (from !== this.net.hostId) return
+    // The host picks the map; switch before spawning into the round.
+    if (typeof d.map === 'string' && d.map !== this.maps?.current()) this.maps?.set(d.map)
     if (typeof d.left === 'number') this.time = d.left
     if (d.scores && typeof d.scores === 'object') {
       for (const [id, kd] of Object.entries(d.scores)) {
@@ -132,8 +134,9 @@ export class OnlineMatch extends Match {
   }
 
   // host presses start
-  startRound() {
+  startRound(mapId) {
     if (!this.net?.isHost) return
+    if (mapId) this.maps?.set(mapId)
     for (const f of this.fighters) { f.kills = 0; f.deaths = 0 }
     this.time = MATCH_SECONDS
     this.broadcastSync('running')
@@ -150,7 +153,7 @@ export class OnlineMatch extends Match {
     if (!this.net?.isHost) return
     const scores = {}
     for (const [id, f] of this.byId) scores[id] = [f.kills, f.deaths]
-    this.net.send({ k: 'sync', phase, left: Math.round(this.time * 10) / 10, scores })
+    this.net.send({ k: 'sync', phase, left: Math.round(this.time * 10) / 10, scores, map: this.maps?.current() })
   }
 
   onShot(f, d) {

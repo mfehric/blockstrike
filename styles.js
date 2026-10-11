@@ -56,10 +56,16 @@ export const CSS2 = `
 .bs-feed div.mine{outline:2px solid #ffd84b}.bs-feed div.died{outline:2px solid #ff5a4b}
 .bs-feed em{font-style:normal;opacity:.7;margin:0 6px;font-size:11px;letter-spacing:.08em}
 @keyframes bsIn{from{transform:translateX(20px);opacity:0}}
-.bs-scope{position:absolute;inset:0;display:none;pointer-events:none;background:radial-gradient(circle at 50% 50%,transparent 0,transparent min(34vh,34vw),#000 calc(min(34vh,34vw) + 2px))}
+.bs-scope{position:absolute;inset:0;display:none;pointer-events:none;background:radial-gradient(circle at 50% 50%,transparent 0,transparent min(36vh,36vw),rgba(0,0,0,.55) calc(min(36vh,36vw) + 1px),#000 calc(min(36vh,36vw) + 6px))}
 .bs-scope.on{display:block}
-.bs-scope:before,.bs-scope:after{content:"";position:absolute;background:#000;left:50%;top:50%}
-.bs-scope:before{width:2px;height:min(68vh,68vw);transform:translate(-1px,-50%)}.bs-scope:after{height:2px;width:min(68vh,68vw);transform:translate(-50%,-1px)}
+.bs-scope:before,.bs-scope:after{content:"";position:absolute;left:50%;top:50%;background:linear-gradient(var(--d,90deg),#000 0 44%,rgba(0,0,0,.85) 44% 49.6%,transparent 49.6% 50.4%,rgba(0,0,0,.85) 50.4% 56%,#000 56%)}
+.bs-scope:before{--d:180deg;width:1px;height:min(72vh,72vw);transform:translate(-50%,-50%)}.bs-scope:after{--d:90deg;height:1px;width:min(72vh,72vw);transform:translate(-50%,-50%)}
+.bs-scope-dot{position:absolute;left:50%;top:50%;width:4px;height:4px;border-radius:50%;background:#ff3b30;transform:translate(-50%,-50%);box-shadow:0 0 4px #ff3b30}
+.bs-scope-zl{position:absolute;left:50%;top:calc(50% + min(36vh,36vw) - 34px);transform:translateX(-50%);font:700 13px/1 system-ui,sans-serif;color:rgba(0,0,0,.7);letter-spacing:.06em}
+.bs-choice{display:grid;grid-template-columns:96px 1fr;align-items:center;gap:4px 10px;margin:14px 0 0;font-size:14px}
+.bs-choice .bs-seg{margin:0;grid-template-columns:repeat(auto-fit,minmax(0,1fr))}
+.bs-choice .bs-seg button{min-height:36px}
+.bs-choice small{grid-column:2;color:#ffb38f;font-size:12px}
 .bs-hurt{position:absolute;inset:0;pointer-events:none;opacity:0;box-shadow:inset 0 0 140px 40px rgba(255,30,30,.85)}
 .bs-hdir{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;opacity:0}
 .bs-hdir i{position:absolute;left:-40px;top:-150px;width:80px;height:18px;border-radius:50% 50% 0 0/100% 100% 0 0;background:rgba(255,50,50,.9)}

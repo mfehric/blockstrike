@@ -17,8 +17,9 @@ export const WEAPONS = {
   },
   sniper: {
     id: 'sniper', name: 'LONGBOW', slot: 2, auto: false, interval: 1.25, dmg: 75, headMult: 2.1, // head = 157 => one shot
-    mag: 5, reserve: 15, reload: 2.3, pellets: 1, spread: 0.07, scopedSpread: 0.0003, moveSpread: 0.02, range: 300,
-    scopeFov: 22, scopeSens: 0.3, recoil: [[0.035, 0.004]], tracer: '#9fe8ff', tracerWidth: 0.05, tracerLife: 0.18, flash: 1.5,
+    mag: 5, reserve: 15, reload: 2.3, pellets: 1, spread: 0.07, moveSpread: 0.02, range: 300,
+    zooms: [40, 15], // right click: 2.5x, 6x, off
+    zoomSpreads: [0.0012, 0.0003], recoil: [[0.035, 0.004]], tracer: '#9fe8ff', tracerWidth: 0.05, tracerLife: 0.18, flash: 1.5,
   },
   shotgun: {
     id: 'shotgun', name: 'BOOMSTICK', slot: 3, auto: false, interval: 0.8, dmg: 12, headMult: 1.5,

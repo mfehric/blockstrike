@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react'
 import { WEAPONS } from './weapons.js'
 import { MATCH_SECONDS } from './match.js'
 import { inviteLink } from './net.js'
+import { MAPS, mapById } from './map.js'
 import * as THREE from 'three'
 
 const fmtTime = (t) => { const s = Math.max(0, Math.ceil(t)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') }
@@ -39,7 +40,10 @@ export function Hud({ game, feed }) {
         el.style.opacity = Math.min(1, d.life / 0.35)
         el.style.transform = `translate(${((_v.x + 1) / 2) * W - 10}px, ${((1 - _v.y) / 2) * H}px)`
       }
-      if (R.scope) { const sc = 'bs-scope' + (g.scoped ? ' on' : ''); if (R.scope.className !== sc) R.scope.className = sc }
+      if (R.scope) {
+        const sc = 'bs-scope' + (g.scoped ? ' on' : ''); if (R.scope.className !== sc) R.scope.className = sc
+        const zl = g.zoom === 2 ? '6×' : '2.5×'; if (R.zl.textContent !== zl) R.zl.textContent = zl
+      }
       if (R.cross) R.cross.style.display = g.scoped || !me.alive ? 'none' : 'block'
       if (R.hurt) R.hurt.style.opacity = Math.min(0.9, g.hurt.t) * (me.alive ? 1 : 0.4)
       if (R.hdir) { R.hdir.style.opacity = Math.min(1, g.hurt.t * 1.4); R.hdir.style.transform = `rotate(${(-g.hurt.angle * 180) / Math.PI}deg)` }
@@ -79,7 +83,7 @@ export function Hud({ game, feed }) {
 
   return (
     <>
-      <div className="bs-scope" ref={ref('scope')} />
+      <div className="bs-scope" ref={ref('scope')}><i className="bs-scope-dot" /><b className="bs-scope-zl" ref={ref('zl')} /></div>
       <div className="bs-hurt" ref={ref('hurt')} />
       <div className="bs-hdir" ref={ref('hdir')}><i /></div>
       <div className="bs-cross" ref={ref('cross')}><i /><i /><i /><i /></div>
@@ -126,6 +130,22 @@ function Slider({ label, value, min, max, step, onChange, fmt = (v) => v }) {
   )
 }
 
+function Choice({ label, value, options, onChange, note }) {
+  return (
+    <div className="bs-choice">
+      <span>{label}</span>
+      <div className="bs-seg" role="group" aria-label={label}>
+        {options.map(([v, t]) => <button key={v} className={value === v ? 'on' : ''} onClick={() => onChange(v)}>{t}</button>)}
+      </div>
+      {note && <small>{note}</small>}
+    </div>
+  )
+}
+
+export function MapPicker({ value, onChange }) {
+  return <Choice label="Map" value={mapById(value).id} options={MAPS.map((m) => [m.id, m.name])} onChange={onChange} />
+}
+
 function Settings({ settings, onChange, showDifficulty }) {
   return (
     <>
@@ -138,6 +158,10 @@ function Settings({ settings, onChange, showDifficulty }) {
       )}
       <Slider label="Sensitivity" value={settings.sensitivity} min={0.2} max={3} step={0.05} onChange={(v) => onChange({ sensitivity: v })} fmt={(v) => v.toFixed(2)} />
       <Slider label="Field of view" value={settings.fov} min={70} max={120} step={1} onChange={(v) => onChange({ fov: v })} fmt={(v) => v + '°'} />
+      <Slider label="Scope sensitivity" value={settings.scopeSens ?? 1} min={0.3} max={2} step={0.05} onChange={(v) => onChange({ scopeSens: v })} fmt={(v) => v.toFixed(2)} />
+      <Choice label="Crouch key" value={settings.crouchKey || 'c'} options={[['c', 'C'], ['shift', 'Shift'], ['ctrl', 'Ctrl']]} onChange={(v) => onChange({ crouchKey: v })}
+        note={settings.crouchKey === 'ctrl' ? 'Ctrl+W closes the browser tab' : settings.crouchKey === 'shift' ? 'Tapping Shift 5 times opens Windows Sticky Keys' : ''} />
+      <Choice label="Scope" value={settings.scopeMode || 'toggle'} options={[['toggle', 'Click'], ['hold', 'Hold']]} onChange={(v) => onChange({ scopeMode: v })} />
       <Slider label="Render scale" value={settings.scale} min={0.5} max={1} step={0.05} onChange={(v) => onChange({ scale: v })} fmt={(v) => Math.round(v * 100) + '%'} />
       <Slider label="Volume" value={settings.volume} min={0} max={1} step={0.05} onChange={(v) => onChange({ volume: v })} fmt={(v) => Math.round(v * 100) + '%'} />
     </>
@@ -148,8 +172,8 @@ const Keys = () => (
   <div className="bs-keys">
     <kbd>W A S D</kbd><span>Move · strafe-turn in the air to gain speed</span>
     <kbd>Space</kbd><span>Jump · hold to bunny-hop</span>
-    <kbd>Shift</kbd><span>Crouch · slide while running · land crouched = slide-hop</span>
-    <kbd>Mouse</kbd><span>Left fire · Right scope (sniper)</span>
+    <kbd>C</kbd><span>Crouch · slide while running · land crouched = slide-hop</span>
+    <kbd>Mouse</kbd><span>Left fire · Right click zooms the sniper (2.5× → 6× → off)</span>
     <kbd>1 2 3 R</kbd><span>AR · Sniper · Shotgun · Reload</span>
     <kbd>Tab</kbd><span>Scoreboard</span>
   </div>
@@ -161,6 +185,7 @@ export function MainMenu({ settings, onChange, onPlay, onOnline, error }) {
       <div className="bs-card">
         <h1 className="bs-title">BLOCK<span>STRIKE</span></h1>
         <p className="bs-sub">4-minute free-for-all</p>
+        <MapPicker value={settings.map} onChange={(v) => onChange({ map: v })} />
         <button className="bs-play" onClick={onPlay} autoFocus>PLAY VS 5 BOTS</button>
         <button className="bs-ghost" onClick={onOnline}>Play online with friends</button>
         {error && <p className="bs-note">{error}</p>}
@@ -243,7 +268,7 @@ export function OnlineMenu({ name, onName, onCreate, onJoin, onBack, available, 
   )
 }
 
-export function Lobby({ code, status, error, members, isHost, youId, onStart, onLeave }) {
+export function Lobby({ code, status, error, members, isHost, youId, onStart, onLeave, map, onMap }) {
   const [copied, setCopied] = React.useState('')
   const [slow, setSlow] = React.useState(false)
   React.useEffect(() => {
@@ -272,7 +297,8 @@ export function Lobby({ code, status, error, members, isHost, youId, onStart, on
       <div className="bs-card">
         <h1 className="bs-title">ROOM <span>{code}</span></h1>
         <p className="bs-sub">{ready ? (link ? 'Send friends the invite link. The host starts the match.' : 'Share this code. The host starts the match.') : msg}</p>
-        <button className="bs-ghost" style={{ marginTop: 0 }} onClick={copy}>{copied === 'ok' ? 'Copied' : link ? 'Copy invite link' : 'Copy room code'}</button>
+        {ready && isHost && <MapPicker value={map} onChange={onMap} />}
+        <button className="bs-ghost" onClick={copy}>{copied === 'ok' ? 'Copied' : link ? 'Copy invite link' : 'Copy room code'}</button>
         {copied === 'fail' && <p className="bs-note" style={{ userSelect: 'all', wordBreak: 'break-all' }}>Copy was blocked. Select and copy: {link || code}</p>}
         <ul className="bs-players">
           {members.map((m, i) => (

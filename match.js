@@ -15,8 +15,8 @@ const _up = new THREE.Vector3(0, 1, 0)
 
 // Free-for-all match state: fighters (player + bots), scores, timer, respawns.
 export class Match {
-  constructor({ world, combat, nav, effects, scene, playerBody, events }) {
-    Object.assign(this, { world, combat, nav, effects, scene, events })
+  constructor({ world, combat, nav, effects, scene, playerBody, events, maps }) {
+    Object.assign(this, { world, combat, nav, effects, scene, events, maps })
     this.playerBody = playerBody
     this.fighters = []
     this.state = 'idle'            // idle | running | ended

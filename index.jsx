@@ -81,6 +81,7 @@ export default function App({ appId, token }) {
     const s = { ...settingsRef.current, ...patch }
     settingsRef.current = s; setSettings(s)
     gameRef.current?.applySettings(s)
+    if (patch.map) gameRef.current?.setMap(patch.map)      // preview the map behind the menu
     if (patch.volume !== undefined) setVolume(s.volume)
     saveSettings(s)
   }
@@ -98,7 +99,7 @@ export default function App({ appId, token }) {
   const play = () => {
     const g = gameRef.current
     if (!g) return
-    g.startMatch(settingsRef.current.difficulty)
+    g.startMatch(settingsRef.current.difficulty, settingsRef.current.map)
     setFeed([]); phaseRef.current = 'playing'; setPhase('playing')
     lock()
   }
@@ -134,7 +135,7 @@ export default function App({ appId, token }) {
   const startOnlineMatch = () => {
     const om = gameRef.current?.onlineMatch
     if (!om) return
-    om.startRound()
+    om.startRound(settingsRef.current.map)
     lock()
   }
   const againOnline = () => {
@@ -155,7 +156,8 @@ export default function App({ appId, token }) {
       )}
       {phase === 'lobby' && online && (
         <Lobby code={online.code} status={online.status} error={online.error} members={online.members}
-          isHost={online.isHost} youId={online.youId} onStart={startOnlineMatch} onLeave={quit} />
+          isHost={online.isHost} youId={online.youId} onStart={startOnlineMatch} onLeave={quit}
+          map={settings.map} onMap={(v) => change({ map: v })} />
       )}
       {phase === 'playing' && !locked && <PauseMenu settings={settings} onChange={change} onResume={lock} onQuit={quit} error={error} online={!!online} />}
       {phase === 'results' && online && <Results ranking={ranking} onAgain={againOnline} onMenu={quit} againLabel="BACK TO LOBBY" menuLabel="Leave room" />}

@@ -27,12 +27,11 @@ export class Game {
     this.slowT = 0; this.fastT = 0
     this.renderer.setPixelRatio(this.dprMax * this.curScale)
     this.scene = new THREE.Scene()
-    this.scene.background = new THREE.Color('#9fc4e8')
-    this.scene.fog = new THREE.Fog('#9fc4e8', 45, 120)
     this.camera = new THREE.PerspectiveCamera(settings.fov, 1, 0.05, 200)
     this.camera.rotation.order = 'YXZ'
-    this.world = buildMap()
+    this.world = buildMap(settings.map)
     this.scene.add(this.world.mesh)
+    this.applyAtmosphere()
     this.addSky()
     this.player = new Player(this.world)
     const s = this.world.spawns[0]
@@ -74,11 +73,14 @@ export class Game {
       onFeed: (f) => this.hooks.onFeed?.(f),
       onEnd: (r) => this.hooks.onEnd?.(r),
     }
-    this.matchOpts = { world: this.world, combat: this.combat, nav: this.nav, effects: this.effects, scene: this.scene, playerBody: this.player, events: ev }
+    const maps = { current: () => this.world.id, set: (id) => this.setMap(id) }
+    this.matchOpts = { world: this.world, combat: this.combat, nav: this.nav, effects: this.effects, scene: this.scene, playerBody: this.player, events: ev, maps }
     this.botMatch = new Match(this.matchOpts)
     this.match = this.botMatch
     this.onlineMatch = null
     this.input = new Input(canvas)
+    this.input.setCrouchKey(settings.crouchKey)
+    this.zoom = 0                    // sniper zoom level: 0 off, 1 = 2.5x, 2 = 6x
     this.active = false
     this.acc = 0
     this.last = 0
@@ -134,13 +136,36 @@ export class Game {
   leaveOnline() {
     if (this.onlineMatch) { this.onlineMatch.leave(); this.onlineMatch = null }
     this.match = this.botMatch
-    this.scoped = false
+    this.scoped = false; this.zoom = 0
   }
 
-  startMatch(difficulty) {
+  // Swap the level in place: world, combat and nav keep their identity, so
+  // the player, matches and bots that hold them see the new map.
+  setMap(id) {
+    if (id === this.world.id || !id) return
+    const next = buildMap(id)
+    this.scene.remove(this.world.mesh)
+    this.world.mesh.geometry.dispose(); this.world.mesh.material.dispose()
+    for (const k of Object.keys(this.world)) delete this.world[k]
+    Object.assign(this.world, next)
+    this.scene.add(this.world.mesh)
+    this.combat.mesh = this.world.mesh
+    Object.assign(this.nav, buildNav(this.world, this.combat))
+    this.applyAtmosphere()
+    const s = this.world.spawns[0]
+    this.player.teleport(s[0], s[1], s[2], -Math.PI / 4)
+  }
+
+  applyAtmosphere() {
+    this.scene.background = new THREE.Color(this.world.sky)
+    this.scene.fog = new THREE.Fog(this.world.sky, this.world.fog[0], this.world.fog[1])
+  }
+
+  startMatch(difficulty, mapId) {
     this.leaveOnline()
+    this.setMap(mapId)
     this.match.start(difficulty)
-    this.dmgNums.length = 0; this.hurt.t = 0; this.triggerHeld = false
+    this.dmgNums.length = 0; this.hurt.t = 0; this.triggerHeld = false; this.zoom = 0
   }
 
   setActive(v) {
@@ -150,8 +175,11 @@ export class Game {
     if (!v) sfx.slide(false)
   }
 
+  zoomFov() { return WEAPONS.sniper.zooms[Math.max(0, this.zoom - 1)] }
+
   applySettings(s) {
     this.settings = s
+    this.input.setCrouchKey(s.crouchKey)
     this.scale = Math.min(s.scale || 1, 1)
     this.curScale = Math.min(this.curScale, this.scale)
     this.applyScale()
@@ -169,13 +197,18 @@ export class Game {
     for (let n = 1; n <= 3; n++) {
       if (inp.consumeEdge('Digit' + n)) {
         const id = ['ar', 'sniper', 'shotgun'][n - 1]
-        if (L.select(id)) { this.vm.setWeapon(id); sfx.switchGun() }
+        if (L.select(id)) { this.vm.setWeapon(id); sfx.switchGun(); this.zoom = 0 }
       }
     }
     if (inp.consumeEdge('KeyR') && L.reload()) sfx.reload()
     L.update(STEP)
     const w = L.w
-    this.scoped = w.id === 'sniper' && (inp.mouseButtons & 2) !== 0 && L.switchT <= 0 && L.reloadT <= 0
+    // Sniper scope: right click steps 2.5x -> 6x -> off (or hold for 2.5x).
+    const rightEdge = inp.consumeEdge('Mouse2')
+    if (w.id !== 'sniper' || L.reloadT > 0) this.zoom = 0
+    else if (this.settings.scopeMode === 'hold') this.zoom = (inp.mouseButtons & 2) ? Math.max(1, this.zoom) : 0
+    else if (rightEdge) { this.zoom = (this.zoom + 1) % (w.zooms.length + 1); sfx.zoom() }
+    this.scoped = this.zoom > 0 && L.switchT <= 0
     const trigger = (inp.mouseButtons & 1) !== 0
     const fire = trigger && (w.auto || !this.triggerHeld)
     this.triggerHeld = trigger
@@ -188,7 +221,7 @@ export class Game {
         const muzzle = origin.clone().addScaledVector(dir, 0.9).addScaledVector(right, 0.22); muzzle.y -= 0.2
         const moving = Math.min(1, pl.hSpeed / C.maxSpeed) + (pl.onGround ? 0 : 1.2)
         let spread = w.spread + w.moveSpread * moving
-        if (w.id === 'sniper') spread = this.scoped ? w.scopedSpread + 0.004 * moving : w.spread
+        if (w.id === 'sniper') spread = this.scoped ? w.zoomSpreads[this.zoom - 1] + 0.004 * moving : w.spread
         if (w.id === 'shotgun') spread = w.spread
         const ends = this.match.shoot(f, w.id, origin, dir, spread, 1, muzzle)
         this.match.announceShot?.(w.id, muzzle, ends)
@@ -221,7 +254,7 @@ export class Game {
       this.stepTimer += STEP * pl.hSpeed
       if (this.stepTimer > (pl.crouched ? 3.2 : 4.2)) { this.stepTimer = 0; sfx.step() }
     }
-    if (alive) this.weapons(f, inp); else { this.scoped = false; this.triggerHeld = false }
+    if (alive) this.weapons(f, inp); else { this.scoped = false; this.zoom = 0; this.triggerHeld = false }
     if (!this.match.net) this.match.update(STEP)
     if (this.hitMarker.t > 0) this.hitMarker.t -= STEP
   }
@@ -236,8 +269,11 @@ export class Game {
     if (this.active) {
       const [dx, dy] = this.input.consumeLook()
       this.lookDX = dx; this.lookDY = dy
-      const wpn = WEAPONS[this.match.player?.loadout.cur || 'ar']
-      const k = LOOK * this.settings.sensitivity * (this.scoped ? wpn.scopeSens : 1)
+      // Scoped, the mouse turns the view in proportion to the zoom, so the
+      // target moves the same distance on screen as unscoped (scaled by the
+      // scope sensitivity setting).
+      const zoomK = this.scoped ? (this.zoomFov() / this.settings.fov) * (this.settings.scopeSens || 1) : 1
+      const k = LOOK * this.settings.sensitivity * zoomK
       if (this.match.player?.alive) {
         pl.yaw -= dx * k
         pl.pitch = Math.max(-1.55, Math.min(1.55, pl.pitch - dy * k))
@@ -269,7 +305,7 @@ export class Game {
     const me = this.match.player
     const alive = !me || me.alive || this.match.state !== 'running'
     const wid = me ? me.loadout.cur : 'ar'
-    const fovT = this.scoped ? WEAPONS.sniper.scopeFov : this.settings.fov + C.fovSpeedKick * Math.min(1, Math.max(0, (sp - C.maxSpeed) / 8))
+    const fovT = this.scoped ? this.zoomFov() : this.settings.fov + C.fovSpeedKick * Math.min(1, Math.max(0, (sp - C.maxSpeed) / 8))
     this.fov += (fovT - this.fov) * Math.min(1, dt * (this.scoped ? 16 : 6))
     if (Math.abs(this.camera.fov - this.fov) > 0.01) { this.camera.fov = this.fov; this.camera.updateProjectionMatrix() }
     if (!alive) this.deadBlend = Math.min(1, this.deadBlend + dt * 2.2)

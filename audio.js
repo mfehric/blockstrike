@@ -73,6 +73,7 @@ export const sfx = {
   empty() { tone(300, 250, 0.04, 0.12, 'square') },
   hurt() { tone(160, 80, 0.18, 0.4, 'sawtooth') },
   die() { tone(220, 40, 0.6, 0.4, 'sawtooth') },
+  zoom() { noise(0.03, 'highpass', 3200, 2400, 0.08) },
   switchGun() { noise(0.05, 'bandpass', 1800, 900, 0.12) },
 
   jump() { noise(0.14, 'bandpass', 500, 1500, 0.16) },

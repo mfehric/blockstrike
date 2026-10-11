@@ -1,4 +1,4 @@
-export const DEFAULTS = { sensitivity: 1.0, fov: 100, volume: 0.7, scale: 1, difficulty: 'normal', name: '' }
+export const DEFAULTS = { sensitivity: 1.0, fov: 100, volume: 0.7, scale: 1, difficulty: 'normal', name: '', crouchKey: 'c', scopeSens: 1.0, scopeMode: 'toggle', map: 'arena' }
 const KEY = 'settings.json'
 let timer = null
 
