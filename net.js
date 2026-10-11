@@ -1,6 +1,7 @@
 import { CONFIG as C } from './config.js'
+import { join as joinRoom, roomsAvailable } from './rooms.js'
 
-// Room transport + protocol for online matches (window.mobius.live).
+// Room transport + protocol for online matches (peer-to-peer rooms, rooms.js).
 //
 // Everyone simulates their own movement and broadcasts a compact state at
 // 20 Hz; others render it ~110 ms in the past, interpolated. Shots are decided
@@ -17,7 +18,7 @@ const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 
 export const makeCode = () => Array.from({ length: 4 }, () => CODE_CHARS[(Math.random() * CODE_CHARS.length) | 0]).join('')
 export const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4)
-export const liveAvailable = () => !!window.mobius?.live?.join
+export const liveAvailable = () => roomsAvailable()
 
 // The sandboxed frame cannot read the page address, but the browser passes the
 // same-origin page URL as the frame's referrer. On the public page
@@ -37,7 +38,10 @@ export const inviteCode = () => {
 }
 export const inviteLink = (code) => {
   const u = pageUrl()
-  return u ? `${u.origin}${standalone ? u.pathname : PUBLIC_PATH}?room=${code}` : ''
+  // Inside Möbius the link opens the web version, so friends need nothing
+  // installed; Möbius players can also just type the code.
+  if (!standalone) return `${WEB_URL}?room=${code}`
+  return u ? `${u.origin}${u.pathname}?room=${code}` : ''
 }
 
 // A remote player's recent states for interpolation.
@@ -82,9 +86,8 @@ export class Net {
   }
 
   connect() {
-    const live = window.mobius?.live
-    if (!live?.join) { this.status = 'error'; this.error = 'unavailable'; this.onEvent('status', 'error'); return }
-    const room = live.join(`bs-${this.code}`, { name: this.name, max: MAX_PLAYERS })
+    if (!roomsAvailable()) { this.status = 'error'; this.error = 'unavailable'; this.onEvent('status', 'error'); return }
+    const room = joinRoom(`bs-${this.code}`, { name: this.name, max: MAX_PLAYERS })
     this.room = room
     room.onStatus((s) => {
       this.status = s; this.error = room.error

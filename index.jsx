@@ -5,9 +5,11 @@ import { initAudio, setVolume } from './audio.js'
 import { loadSettings, saveSettings, DEFAULTS } from './settings.js'
 import { Hud, MainMenu, PauseMenu, Results, OnlineMenu, Lobby } from './hud.jsx'
 import { makeCode, cleanCode, liveAvailable, inviteCode } from './net.js'
+import { setProxyToken } from './rooms.js'
 import { CSS, CSS2 } from './styles.js'
 
-export default function App({ appId }) {
+export default function App({ appId, token }) {
+  setProxyToken(token)
   const canvasRef = useRef(null)
   const gameRef = useRef(null)
   const [game, setGame] = useState(null)
