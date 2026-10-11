@@ -20,6 +20,7 @@ export const CSS = `
 .bs-title span{color:#ff7a4b}
 .bs-sub{opacity:.7;margin:2px 0 16px;font-size:14px}
 .bs-play{width:100%;min-height:52px;border:0;border-radius:12px;background:#ff7a4b;color:#1a0e08;font-size:18px;font-weight:800;letter-spacing:.05em;cursor:pointer}
+.bs-choice + .bs-play{margin-top:18px}
 .bs-play:hover{background:#ff8f68}.bs-play:focus-visible,.bs-card input:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .bs-row{display:grid;grid-template-columns:96px 1fr 44px;align-items:center;gap:10px;margin:14px 0 0;font-size:14px}
 .bs-row output{text-align:right;font-variant-numeric:tabular-nums;opacity:.85}
