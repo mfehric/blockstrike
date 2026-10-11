@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { WEAPONS } from './weapons.js'
 import { MATCH_SECONDS } from './match.js'
-import { inviteLink } from './net.js'
+import { inviteLink, WEB_URL } from './net.js'
 import * as THREE from 'three'
 
 const fmtTime = (t) => { const s = Math.max(0, Math.ceil(t)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') }
@@ -222,7 +222,12 @@ export function OnlineMenu({ name, onName, onCreate, onJoin, onBack, available, 
       <div className="bs-card">
         <h1 className="bs-title">PLAY <span>ONLINE</span></h1>
         <p className="bs-sub">{initialCode ? `You're invited to room ${initialCode}. Pick a name and join.` : 'Up to 4 players, no account needed for guests on the public link.'}</p>
-        {!available && <p className="bs-note">Online rooms are not available in this Möbius version.</p>}
+        {!available && (
+          <p className="bs-note">
+            Rooms need the web version here. <a href={WEB_URL} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', fontWeight: 700 }}>Open Blockstrike online</a>,
+            create a room and send friends the link: <span style={{ userSelect: 'all', wordBreak: 'break-all' }}>{WEB_URL}</span>
+          </p>
+        )}
         <label className="bs-row" style={{ gridTemplateColumns: '70px 1fr' }}>
           <span>Name</span>
           <input className="bs-text" value={name} maxLength={16} placeholder="Player" onChange={(e) => onName(e.target.value)} />
@@ -266,7 +271,7 @@ export function Lobby({ code, status, error, members, isHost, youId, onStart, on
     setTimeout(() => setCopied(''), ok ? 1500 : 6000)
   }
   const ready = status === 'open'
-  const msg = error === 'full' ? 'This room is full (4 players).' : error === 'unauthorized' ? 'Could not sign in to the room.' : slow && status !== 'open' ? 'Still cannot reach the room server. Check your connection, or leave and try again.' : STATUS_TEXT[status] || ''
+  const msg = error === 'full' ? 'This room is full (4 players).' : error === 'host-left' ? 'The host left, so the room closed.' : error === 'unreachable' ? 'Could not reach this room. Check the code, or ask the host to create it again.' : error === 'unauthorized' ? 'Could not sign in to the room.' : slow && status !== 'open' ? 'Still cannot reach the room server. Check your connection, or leave and try again.' : STATUS_TEXT[status] || ''
   return (
     <div className="bs-menu">
       <div className="bs-card">

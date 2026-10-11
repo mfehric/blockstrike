@@ -23,15 +23,21 @@ export const liveAvailable = () => !!window.mobius?.live?.join
 // same-origin page URL as the frame's referrer. On the public page
 // /blockstrike?room=ABCD that carries an invite; in the shell it gives the
 // instance origin the invite link points at.
+// Outside Möbius (the standalone web build) the game is the top page, so the
+// invite is read from and pointed at its own address.
 export const PUBLIC_PATH = '/blockstrike'
-const pageUrl = () => { try { return document.referrer ? new URL(document.referrer) : null } catch (e) { return null } }
+export const WEB_URL = 'https://mfehric.github.io/blockstrike/'
+const standalone = (() => { try { return window.self === window.top } catch (e) { return false } })()
+const pageUrl = () => {
+  try { return standalone ? new URL(location.href) : document.referrer ? new URL(document.referrer) : null } catch (e) { return null }
+}
 export const inviteCode = () => {
   const c = cleanCode(pageUrl()?.searchParams.get('room'))
   return c.length === 4 ? c : ''
 }
 export const inviteLink = (code) => {
   const u = pageUrl()
-  return u ? `${u.origin}${PUBLIC_PATH}?room=${code}` : ''
+  return u ? `${u.origin}${standalone ? u.pathname : PUBLIC_PATH}?room=${code}` : ''
 }
 
 // A remote player's recent states for interpolation.
