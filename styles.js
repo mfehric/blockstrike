@@ -94,4 +94,23 @@ export const CSS2 = `
 .bs-seg-btn:disabled,.bs-play:disabled{opacity:.45;cursor:not-allowed}
 .bs-players{list-style:none;margin:14px 0;padding:0;display:grid;gap:8px}
 .bs-players li{background:#222b42;border-radius:10px;padding:10px 12px;font-weight:700}
+
+.bs-touch{position:absolute;inset:0;z-index:5;touch-action:none;-webkit-touch-callout:none}
+.bs-zone{position:absolute;top:0;bottom:0;touch-action:none}
+.bs-zl{left:0;width:45%}.bs-zr{right:0;width:55%}
+.bs-stick{position:absolute;width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:50%;background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.35);pointer-events:none}
+.bs-stick i{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;border-radius:50%;background:rgba(255,255,255,.5)}
+.bs-tbtn{position:absolute;border-radius:50%;border:2px solid rgba(255,255,255,.45);background:rgba(20,26,42,.45);color:#fff;font-weight:800;font-size:12px;letter-spacing:.05em;touch-action:none;user-select:none;-webkit-user-select:none;display:grid;place-items:center;padding:0}
+.bs-tbtn.on{background:rgba(255,122,75,.65);border-color:#ff7a4b}
+.bs-tbtn.latched{background:rgba(75,139,217,.6)}
+.bs-tfire{right:max(22px,env(safe-area-inset-right));bottom:max(60px,calc(env(safe-area-inset-bottom) + 40px));width:92px;height:92px;font-size:14px}
+.bs-tjump{right:max(128px,calc(env(safe-area-inset-right) + 106px));bottom:max(36px,env(safe-area-inset-bottom));width:68px;height:68px}
+.bs-tcrouch{right:max(30px,env(safe-area-inset-right));bottom:max(170px,calc(env(safe-area-inset-bottom) + 150px));width:62px;height:62px;font-size:10px}
+.bs-tscope{right:max(110px,calc(env(safe-area-inset-right) + 88px));bottom:max(122px,calc(env(safe-area-inset-bottom) + 110px));width:58px;height:58px;font-size:10px}
+.bs-treload{right:max(190px,calc(env(safe-area-inset-right) + 170px));bottom:max(50px,env(safe-area-inset-bottom));width:48px;height:48px}
+.bs-tweap{position:absolute;right:max(190px,calc(env(safe-area-inset-right) + 170px));top:max(10px,env(safe-area-inset-top));display:flex;gap:8px}
+.bs-tw{position:static;width:44px;height:44px;border-radius:12px}
+.bs-tpause{left:50%;top:max(8px,env(safe-area-inset-top));margin-left:-21px;width:42px;height:42px;border-radius:12px;opacity:.8}
+.bs-ttab{left:max(10px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top));width:44px;height:44px;border-radius:12px;font-size:10px}
+@media (pointer:coarse){.bs-keys{display:none}.bs-feed{top:60px}.bs-speed{display:none}}
 `

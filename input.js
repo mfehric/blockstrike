@@ -19,6 +19,7 @@ export class Input {
     this.enabled = false
     this.onKey = null
     this.crouchKeys = CROUCH_KEYS.c
+    this.stickX = 0; this.stickY = 0   // touch joystick, -1..1 (x right, y forward)
     const kd = (e) => {
       if (!this.enabled) return
       if (!e.repeat) this.pressedEdge.add(e.code)
@@ -50,17 +51,25 @@ export class Input {
       window.removeEventListener('mouseup', mu); window.removeEventListener('blur', blur)
     }
   }
+  // ---- touch layer: same state as keyboard/mouse, fed by on-screen controls
+  setStick(x, y) { this.stickX = x; this.stickY = y }
+  addLook(dx, dy) { if (this.enabled) { this.lookX += dx; this.lookY += dy } }
+  pressKey(code) { if (!this.enabled) return; if (!this.keys.has(code)) this.pressedEdge.add(code); this.keys.add(code) }
+  releaseKey(code) { this.keys.delete(code) }
+  pressMouse(b) { if (!this.enabled) return; this.mouseButtons |= 1 << b; this.pressedEdge.add('Mouse' + b) }
+  releaseMouse(b) { this.mouseButtons &= ~(1 << b) }
   setCrouchKey(id) { this.crouchKeys = CROUCH_KEYS[id] || CROUCH_KEYS.c }
-  setEnabled(v) { this.enabled = v; if (!v) { this.keys.clear(); this.mouseButtons = 0; this.lookX = this.lookY = 0 } }
+  setEnabled(v) { this.enabled = v; if (!v) { this.keys.clear(); this.mouseButtons = 0; this.lookX = this.lookY = 0; this.stickX = this.stickY = 0 } }
   down(code) { return this.keys.has(code) }
   consumeLook() { const r = [this.lookX, this.lookY]; this.lookX = this.lookY = 0; return r }
   consumeEdge(code) { return this.pressedEdge.delete(code) }
   // Movement snapshot for one simulation tick.
   snapshot() {
     const k = this.keys
+    const dz = (v) => (Math.abs(v) < 0.25 ? 0 : v)      // stick dead zone
     return {
-      fwd: (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0),
-      strafe: (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0),
+      fwd: (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) + dz(this.stickY),
+      strafe: (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) + dz(this.stickX),
       jump: k.has('Space'),
       crouch: this.crouchKeys.some((c) => k.has(c)),
     }

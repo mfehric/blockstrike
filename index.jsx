@@ -7,6 +7,7 @@ import { Hud, MainMenu, PauseMenu, Results, OnlineMenu, Lobby } from './hud.jsx'
 import { makeCode, cleanCode, liveAvailable, inviteCode } from './net.js'
 import { setServiceAccess } from './rooms.js'
 import { CSS, CSS2 } from './styles.js'
+import { TouchControls, isTouchDevice } from './touch.jsx'
 
 export default function App({ appId, token }) {
   setServiceAccess(appId, token)
@@ -18,6 +19,8 @@ export default function App({ appId, token }) {
   // the guest still taps JOIN, which also unlocks audio for the match.
   const [invite] = useState(() => inviteCode())
   const [phase, setPhase] = useState(invite ? 'online' : 'menu')        // menu | online | lobby | playing | results
+  const [touch] = useState(isTouchDevice)
+  const [touchOn, setTouchOn] = useState(false)       // touch: playing (true) or paused (false)
   const [locked, setLocked] = useState(false)
   const [error, setError] = useState('')
   const [feed, setFeed] = useState([])
@@ -86,9 +89,19 @@ export default function App({ appId, token }) {
     saveSettings(s)
   }
 
+  // Touch has no pointer lock: "locked" simply means the on-screen controls are live.
+  useEffect(() => {
+    if (!touch) return
+    const on = touchOn && phase === 'playing'
+    setLocked(on)
+    gameRef.current?.setActive(on)
+    if (phase !== 'playing' && touchOn) setTouchOn(false)
+  }, [touch, touchOn, phase])
+
   const lock = () => {
     setError('')
     initAudio(); setVolume(settingsRef.current.volume)
+    if (touch) { setTouchOn(true); return }
     const c = canvasRef.current
     try {
       const r = c.requestPointerLock({ unadjustedMovement: true })
@@ -149,6 +162,7 @@ export default function App({ appId, token }) {
       <style>{CSS + CSS2}</style>
       <canvas ref={canvasRef} className="bs-canvas" />
       {game && phase === 'playing' && <Hud game={game} feed={feed} />}
+      {game && touch && phase === 'playing' && locked && <TouchControls game={game} crouchMode="hold" onPause={() => setTouchOn(false)} />}
       {phase === 'menu' && <MainMenu settings={settings} onChange={change} onPlay={play} onOnline={() => setPhase('online')} error={error} />}
       {phase === 'online' && (
         <OnlineMenu name={settings.name || ''} onName={(v) => change({ name: v })} available={liveAvailable()} initialCode={invite} ready={!!game}

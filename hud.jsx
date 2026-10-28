@@ -202,7 +202,7 @@ export function PauseMenu({ settings, onChange, onResume, onQuit, error, online 
       <div className="bs-card">
         <h1 className="bs-title">{online ? 'ONLINE MATCH' : 'PAUSED'}</h1>
         <p className="bs-sub">{online ? 'The match keeps running while you are here.' : 'The match is on hold.'}</p>
-        <button className="bs-play" onClick={onResume} autoFocus>{online ? 'CLICK TO JUMP IN' : 'RESUME'}</button>
+        <button className="bs-play" onClick={onResume} autoFocus>{online ? 'TAP TO JUMP IN' : 'RESUME'}</button>
         {error && <p className="bs-note">{error}</p>}
         <button className="bs-ghost" onClick={onQuit}>{online ? 'Leave room' : 'Quit to main menu'}</button>
         <Settings settings={settings} onChange={onChange} />
